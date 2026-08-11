@@ -1,16 +1,37 @@
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass
 
 from structlog.contextvars import get_contextvars
 
 from . import metrics
+from .logging_config import get_logger
 from .mock_llm import FakeLLM
-from .mock_rag import retrieve
+from .mock_rag import RetrievalTimeoutError, retrieve
 from .pii import hash_user_id, summarize_text
 from .prompt_management import resolve_prompt
 from .tracing import get_langfuse_client, observe, tracing_enabled
+
+
+DEFAULT_RETRIEVAL_TIMEOUT_MS = 1500
+log = get_logger()
+
+
+def _resolve_retrieval_timeout_ms(value: int | None) -> int:
+    raw_value: int | str = (
+        os.getenv("RETRIEVAL_TIMEOUT_MS", str(DEFAULT_RETRIEVAL_TIMEOUT_MS))
+        if value is None
+        else value
+    )
+    try:
+        timeout_ms = int(raw_value)
+    except (TypeError, ValueError):
+        raise ValueError("RETRIEVAL_TIMEOUT_MS must be an integer >= 0") from None
+    if timeout_ms < 0:
+        raise ValueError("RETRIEVAL_TIMEOUT_MS must be an integer >= 0")
+    return timeout_ms
 
 
 @dataclass
@@ -24,8 +45,13 @@ class AgentResult:
 
 
 class LabAgent:
-    def __init__(self, model: str = "claude-sonnet-4-5") -> None:
+    def __init__(
+        self,
+        model: str = "claude-sonnet-4-5",
+        retrieval_timeout_ms: int | None = None,
+    ) -> None:
         self.model = model
+        self.retrieval_timeout_ms = _resolve_retrieval_timeout_ms(retrieval_timeout_ms)
         self.llm = FakeLLM(model=model)
 
     @observe(as_type="generation", capture_input=False, capture_output=False)
@@ -35,8 +61,38 @@ class LabAgent:
 
         # Hai span con để trace chỉ ra được bước nào chậm, thay vì một span "run" phẳng.
         with langfuse_client.start_as_current_span(name="retrieve-docs") as span:
-            docs = retrieve(message)
-            span.update(metadata={"doc_count": len(docs)})
+            retrieval_started = time.perf_counter()
+            try:
+                docs = retrieve(message, timeout_ms=self.retrieval_timeout_ms)
+            except RetrievalTimeoutError as exc:
+                retrieval_duration_ms = int((time.perf_counter() - retrieval_started) * 1000)
+                retrieval_metadata = {
+                    "doc_count": 0,
+                    "degraded": True,
+                    "retrieval_duration_ms": retrieval_duration_ms,
+                    "timeout_ms": exc.timeout_ms,
+                }
+                span.update(metadata=retrieval_metadata)
+                log.warning(
+                    "retrieval_timed_out",
+                    service="rag",
+                    error_type=type(exc).__name__,
+                    **retrieval_metadata,
+                )
+                docs = []
+            else:
+                retrieval_duration_ms = int((time.perf_counter() - retrieval_started) * 1000)
+                retrieval_metadata = {
+                    "doc_count": len(docs),
+                    "degraded": False,
+                    "retrieval_duration_ms": retrieval_duration_ms,
+                }
+                span.update(metadata=retrieval_metadata)
+                log.info(
+                    "retrieval_completed",
+                    service="rag",
+                    **retrieval_metadata,
+                )
 
         prompt = resolve_prompt(
             langfuse_client,

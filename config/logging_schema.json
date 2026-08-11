@@ -20,6 +20,10 @@
     "quality_score": {"type": ["number", "null"]},
     "error_type": {"type": ["string", "null"]},
     "tool_name": {"type": ["string", "null"]},
+    "retrieval_duration_ms": {"type": ["integer", "null"]},
+    "doc_count": {"type": ["integer", "null"]},
+    "degraded": {"type": ["boolean", "null"]},
+    "timeout_ms": {"type": ["integer", "null"]},
     "payload": {"type": ["object", "null"]}
   }
 }
