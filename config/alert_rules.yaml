@@ -1,19 +1,36 @@
+# Mỗi SLI trong config/slo.yaml có đúng một alert. Điều kiện bám vào field của
+# config/dashboard.yaml nên alert và dashboard luôn đọc cùng một nguồn số liệu.
 alerts:
-  - name: TODO_alert_1
-    severity: TODO
-    condition: TODO
+  - name: ChatAnswerTooSlow
+    severity: P2
+    condition: p95(response_sent.latency_ms) trên cửa sổ 10m > 3000 trong 2 cửa sổ liên tiếp
     type: symptom-based
-    owner: TODO
+    sli: latency_p95_ms
+    owner: Vai trò Dashboard, SLO & Alert
     runbook: docs/alerts.md#alert-1
-  - name: TODO_alert_2
-    severity: TODO
-    condition: TODO
+
+  - name: ChatRequestsFailing
+    severity: P1
+    condition: >-
+      count(request_failed) / count(request_received) trên cửa sổ 10m > 2%
+      và có ít nhất 5 request trong cửa sổ
     type: symptom-based
-    owner: TODO
+    sli: error_rate_pct
+    owner: Vai trò Dashboard, SLO & Alert
     runbook: docs/alerts.md#alert-2
-  - name: TODO_alert_3
-    severity: TODO
-    condition: TODO
+
+  - name: ChatAnswerQualityDrop
+    severity: P3
+    condition: mean(response_sent.quality_score) trên cửa sổ 15m < 0.75 trong 2 cửa sổ liên tiếp
     type: symptom-based
-    owner: TODO
+    sli: quality_score_avg
+    owner: Vai trò Tracing & Prompt Version
     runbook: docs/alerts.md#alert-3
+
+  - name: ChatCostBudgetBurn
+    severity: P3
+    condition: sum(response_sent.cost_usd) cộng dồn trong ngày (UTC) > 2.5 USD
+    type: symptom-based
+    sli: daily_cost_usd
+    owner: Vai trò Dashboard, SLO & Alert
+    runbook: docs/alerts.md#alert-4
