@@ -2,22 +2,25 @@
 
 ## 1. Thông tin nhóm
 
-- Tên nhóm:
-- Repository URL:
-- Commit SHA cuối:
+- Tên nhóm: The Quants
+- Repository URL: https://github.com/twilightt1/Day13-K3-Observability
+- Commit SHA cuối:81954c4efec96317d3550450b1cd3fc84b2bcefe
 - Thành viên và vai trò:
+  - 2A202601047 — Phạm Văn Tâm — Checkpoint 3 (giảm thiểu challenge)
+  - 2A202601309 — Nguyễn Quang Khải — Checkpoint 1 (logging & PII)
+  - 2A202601039 — Nguyễn Tiến Đạt — Checkpoint 2 (tracing, prompt versioning, dashboard, SLO & alert)
 
 ## 2. Kết quả kỹ thuật
 
-- Điểm `validate_logs.py`: *(vai trò Logging & PII điền — Checkpoint 1)*
+- Điểm `validate_logs.py`: 100/100 — 52 records, 11 unique correlation IDs, 0 PII leak (kết quả chạy trên `data/logs.jsonl`)
 - Tổng số traces: 56 trace trong project Langfuse `cmso1vrrz03p0ad0cmluaw5ai`, trong đó **21 trace dùng prompt managed thật** (`prompt_source=langfuse`). 35 trace còn lại là `local-fallback` từ các lần chạy trước khi prompt `day13-chat` được tạo. Bảng thống kê: [evidence/cp2-prompt-traces.txt](evidence/cp2-prompt-traces.txt), ảnh danh sách trace tại `evidence/trace-list.png`
-- Số PII leak còn lại: *(vai trò Logging & PII điền — Checkpoint 1)*
+- Số PII leak còn lại: 0 — validator báo `Potential PII leaks detected: 0`
 - Link/đường dẫn dashboard: `streamlit run scripts/dashboard.py` → http://localhost:8501 (nguồn dữ liệu `data/logs.jsonl`)
 
 ## 3. Logging và tracing
 
-- Evidence correlation ID: *(vai trò Logging & PII điền — Checkpoint 1)*
-- Evidence PII redaction: *(vai trò Logging & PII điền — Checkpoint 1)*
+- Evidence correlation ID: `req-trace001` — cùng ID xuyên suốt `request_received` → `response_sent` trong `data/logs.jsonl`, kết nối log của một request thành chuỗi sự kiện
+- Evidence PII redaction: input chứa email/phone/số thẻ bị scrub thành `[REDACTED_EMAIL]`, `[REDACTED_PHONE]`, `[REDACTED_CARD]` trước khi ghi log — xem [app/pii.py](../app/pii.py) và test trong [tests/test_pii.py](../tests/test_pii.py)
 - Evidence trace waterfall: trace `f309496b9af894b0483c32762b6ff253` — [xem trên Langfuse](https://cloud.langfuse.com/project/cmso1vrrz03p0ad0cmluaw5ai/traces/f309496b9af894b0483c32762b6ff253), ảnh tại `evidence/trace-waterfall.png`, số liệu tại [evidence/cp2-dashboard-incident.txt](evidence/cp2-dashboard-incident.txt) phần 2.
 - Giải thích một span đáng chú ý: span `retrieve-docs` chiếm **2.501s / 2.656s = 94.2%** thời lượng trace, trong khi span `llm-generate` vẫn giữ 0.151s đúng bằng lúc chạy bình thường. Đây là căn cứ để kết luận độ trễ đến từ bước truy hồi tài liệu chứ không phải từ mô hình. Trước Checkpoint 2, trace chỉ có một span `run` phẳng nên không khoanh vùng được; hai span con `retrieve-docs` và `llm-generate` được bổ sung trong [app/agent.py](../app/agent.py) và có test bảo vệ trong [tests/test_agent_prompt_trace.py](../tests/test_agent_prompt_trace.py).
 
@@ -81,5 +84,6 @@ Với mỗi thành viên, ghi rõ nhiệm vụ và link commit/PR tương ứng.
 
 | Thành viên | Phần việc | Commit/PR | Điều đã học |
 |---|---|---|---|
-| *(điền tên)* | Checkpoint 2 — Tracing, prompt versioning, dashboard, SLO & alert: `app/dashboard_data.py`, `scripts/dashboard.py`, `scripts/setup_prompts.py`, hai span con trong `app/agent.py`, `config/slo.yaml`, `config/alert_rules.yaml`, `docs/alerts.md`, `tests/test_dashboard_data.py` | *(điền commit SHA)* | Metrics chỉ nói "có gì đó chậm"; phải có span con thì trace mới chỉ được chậm ở đâu. Trace một span phẳng là trace vô dụng khi điều tra. |
-| *(điền tên)* | Checkpoint 3 — Giảm thiểu challenge: thêm ranh giới timeout `RETRIEVAL_TIMEOUT_MS` trong `app/mock_rag.py`, fallback degrade graceful khi truy hồi timeout trong `app/agent.py`, test bảo vệ trong `tests/test_mock_rag.py`, `tests/test_agent_prompt_trace.py`, `tests/test_chat_observability.py`, thu thập evidence chính thức trước/sau, chẩn đoán incident, viết báo cáo | `7f7aefa` (retrieval timeout boundary), `ab67378` (degrade graceful), `d1cca5b` (evidence), + commit báo cáo | Timeout dependency + fallback degrade giữ P95 dưới SLO khi dependency hỏng, nhưng phải trả giá bằng chất lượng câu trả lời — availability và bounded latency được chọn hơn context đầy đủ trong lúc incident. |
+| 2A202601039 — Nguyễn Tiến Đạt | Checkpoint 2 — Tracing, prompt versioning, dashboard, SLO & alert: `app/dashboard_data.py`, `scripts/dashboard.py`, `scripts/setup_prompts.py`, hai span con trong `app/agent.py`, `config/slo.yaml`, `config/alert_rules.yaml`, `docs/alerts.md`, `tests/test_dashboard_data.py` | `65928d1` (complete checkpoint 2 deliverables) | Metrics chỉ nói "có gì đó chậm"; phải có span con thì trace mới chỉ được chậm ở đâu. Trace một span phẳng là trace vô dụng khi điều tra. |
+| 2A202601047 — Phạm Văn Tâm | Checkpoint 3 — Giảm thiểu challenge: thêm ranh giới timeout `RETRIEVAL_TIMEOUT_MS` trong `app/mock_rag.py`, fallback degrade graceful khi truy hồi timeout trong `app/agent.py`, test bảo vệ trong `tests/test_mock_rag.py`, `tests/test_agent_prompt_trace.py`, `tests/test_chat_observability.py`, thu thập evidence chính thức trước/sau, chẩn đoán incident, viết báo cáo | `7f7aefa` (retrieval timeout boundary), `ab67378` (degrade graceful), `d1cca5b` (evidence), `81954c4` (report) | Timeout dependency + fallback degrade giữ P95 dưới SLO khi dependency hỏng, nhưng phải trả giá bằng chất lượng câu trả lời — availability và bounded latency được chọn hơn context đầy đủ trong lúc incident. |
+| 2A202601309 — Nguyễn Quang Khải | Checkpoint 1 — Logging & PII: structured logging (`app/logging_config.py`), correlation ID middleware, PII redaction, `scripts/validate_logs.py` | `a27a6f5` (complete checkpoint 1) | Log là dữ liệu nhạy cảm chứ không phải chỗ để in mọi thứ — phải scrub PII ngay tại tầng logging và gắn correlation ID cho từng request thì log mới dùng được để truy vết. |
