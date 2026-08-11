@@ -66,13 +66,14 @@
 
 ## 6. Điều tra challenge
 
-- Challenge ID:
-- Triệu chứng từ metrics:
-- Trace ID liên quan:
-- Log line/correlation ID liên quan:
-- Root cause:
-- Fix action:
-- Preventive measure:
+- **Challenge ID:** `day13-k3-observability-v1` (cohort K3), incident `rag_slow` ảnh hưởng feature `refund`, ngưỡng độ trễ `latency_threshold_ms: 2000`.
+- **Triệu chứng từ metrics:** trước khi giảm thiểu, 5 request chính thức đều trả HTTP 200 nhưng `latency_p95` đạt **3826 ms** — vượt ngưỡng 2000 ms — trong khi `error_rate_pct` vẫn là 0.0% và `quality_avg` là 0.86. Chi tiết tại [evidence/cp3-before-metrics.txt](evidence/cp3-before-metrics.txt) và [evidence/cp3-before-dashboard.png](evidence/cp3-before-dashboard.png).
+- **Trace ID liên quan (trước fix):** trace đại diện `a66c41006e848fa7eabc27640b1230c5` ([xem trên Langfuse](https://cloud.langfuse.com/project/cmso1vrrz03p0ad0cmluaw5ai/traces/a66c41006e848fa7eabc27640b1230c5), ảnh tại [evidence/cp3-slow-trace.png](evidence/cp3-slow-trace.png)). Trong trace, span `retrieve-docs` mất ~2.50 giây trong khi span `llm-generate` chỉ ~0.15 giây — độ trễ tập trung ở bước truy hồi tài liệu, không phải ở sinh câu trả lời.
+- **Log line/correlation ID liên quan:** hai sự kiện `retrieval_completed` và `response_sent` cùng mang correlation ID `req-03476ea5` ([evidence/cp3-root-cause-log.txt](evidence/cp3-root-cause-log.txt)): `retrieval_completed` ghi `retrieval_duration_ms=2500, doc_count=1, degraded=false`, còn `response_sent` ghi `latency_ms=3826`. Cùng một correlation ID trải qua hai sự kiện này chứng minh thời gian truy hồi chiếm phần lớn độ trễ end-to-end của request.
+- **Root cause:** dependency RAG (bước `retrieve-docs`) vượt ngân sách độ trễ của nó — không phải do tăng traffic (chỉ 5 request, error rate 0%) và cũng không phải do khâu sinh LLM (span `llm-generate` vẫn ~0.15 giây như bình thường). Đây là lỗi dependency bên ngoài, không phải lỗi logic trong app.
+- **Fix action:** áp dụng ngưỡng timeout dependency `RETRIEVAL_TIMEOUT_MS=1500`: nếu truy hồi không hoàn thành trong 1500 ms, request tiếp tục xử lý với fallback danh sách tài liệu rỗng (`degraded=true`). Sau fix, 5 request vẫn đều HTTP 200, `latency_p95` giảm xuống **1653 ms** (dưới 2000 ms) — xem [evidence/cp3-after-metrics.txt](evidence/cp3-after-metrics.txt) và [evidence/cp3-after-dashboard.png](evidence/cp3-after-dashboard.png). Trace đại diện sau fix `1a86098ba73f18f4014b1d6aa8f21d50` ([xem trên Langfuse](https://cloud.langfuse.com/project/cmso1vrrz03p0ad0cmluaw5ai/traces/1a86098ba73f18f4014b1d6aa8f21d50), ảnh tại [evidence/cp3-timeout-trace.png](evidence/cp3-timeout-trace.png)): span truy hồi ghi `doc_count=0, degraded=true, retrieval_duration_ms=1500, timeout_ms=1500`, và log sự kiện `retrieval_timed_out` tương ứng cũng ghi `degraded=true`.
+- **Đánh đổi chất lượng:** `quality_avg` giảm từ 0.86 xuống **0.66** sau fix. Đây là đánh đổi có chủ đích: trong lúc dependency gặp sự cố, hệ thống ưu tiên tính sẵn sàng và độ trễ có giới hạn (P95 dưới SLO) hơn là chờ đợi context truy hồi đầy đủ. Fix làm giảm chất lượng câu trả lời tạm thời chứ không cải thiện chất lượng — nó khôi phục độ trễ và khả năng phục vụ.
+- **Preventive measure:** (1) timeout dependency `RETRIEVAL_TIMEOUT_MS` chặn một RAG dependency chậm kéo dài độ trễ end-to-end; (2) sự kiện duration theo từng giai đoạn có cấu trúc (`retrieval_completed`, `retrieval_timed_out`) giúp lần sau khoanh vùng nhanh; (3) alert `ChatAnswerTooSlow` có sẵn (P2, p95 latency > 3000 ms) cảnh báo khi vượt SLO; (4) giữ liên kết correlation ID xuyên suốt metrics, traces và logs để truy vết từ triệu chứng tới root cause.
 
 ## 7. Đóng góp cá nhân
 
@@ -81,4 +82,4 @@ Với mỗi thành viên, ghi rõ nhiệm vụ và link commit/PR tương ứng.
 | Thành viên | Phần việc | Commit/PR | Điều đã học |
 |---|---|---|---|
 | *(điền tên)* | Checkpoint 2 — Tracing, prompt versioning, dashboard, SLO & alert: `app/dashboard_data.py`, `scripts/dashboard.py`, `scripts/setup_prompts.py`, hai span con trong `app/agent.py`, `config/slo.yaml`, `config/alert_rules.yaml`, `docs/alerts.md`, `tests/test_dashboard_data.py` | *(điền commit SHA)* | Metrics chỉ nói "có gì đó chậm"; phải có span con thì trace mới chỉ được chậm ở đâu. Trace một span phẳng là trace vô dụng khi điều tra. |
-| | | | |
+| *(điền tên)* | Checkpoint 3 — Giảm thiểu challenge: thêm ranh giới timeout `RETRIEVAL_TIMEOUT_MS` trong `app/mock_rag.py`, fallback degrade graceful khi truy hồi timeout trong `app/agent.py`, test bảo vệ trong `tests/test_mock_rag.py`, `tests/test_agent_prompt_trace.py`, `tests/test_chat_observability.py`, thu thập evidence chính thức trước/sau, chẩn đoán incident, viết báo cáo | `7f7aefa` (retrieval timeout boundary), `ab67378` (degrade graceful), `d1cca5b` (evidence), + commit báo cáo | Timeout dependency + fallback degrade giữ P95 dưới SLO khi dependency hỏng, nhưng phải trả giá bằng chất lượng câu trả lời — availability và bounded latency được chọn hơn context đầy đủ trong lúc incident. |
