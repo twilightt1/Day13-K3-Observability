@@ -1,0 +1,36 @@
+﻿=== health before challenge ===
+{
+    "ok":  true,
+    "tracing_enabled":  true,
+    "incidents":  {
+                      "rag_slow":  false,
+                      "tool_fail":  false,
+                      "cost_spike":  false
+                  }
+}
+=== enable official incident ===
+200 {'ok': True, 'incidents': {'rag_slow': True, 'tool_fail': False, 'cost_spike': False}}
+=== official challenge requests ===
+Challenge: day13-k3-observability-v1 | Cohort: K3
+[200] req-03476ea5 | refund | 12699.3ms
+[200] req-c66d99f3 | refund | 12703.8ms
+[200] req-7c19d22c | refund | 15578.2ms
+[200] req-8ae051d5 | refund | 15579.3ms
+[200] req-cf3a791d | refund | 15615.6ms
+=== metrics after challenge ===
+{
+    "traffic":  5,
+    "latency_p50":  2688.0,
+    "latency_p95":  3826.0,
+    "latency_p99":  3826.0,
+    "avg_cost_usd":  0.002,
+    "total_cost_usd":  0.0101,
+    "tokens_in_total":  162,
+    "tokens_out_total":  638,
+    "error_rate_pct":  0.0,
+    "error_breakdown":  {
+
+                        },
+    "quality_avg":  0.86
+}
+200 {'ok': True, 'incidents': {'rag_slow': False, 'tool_fail': False, 'cost_spike': False}}

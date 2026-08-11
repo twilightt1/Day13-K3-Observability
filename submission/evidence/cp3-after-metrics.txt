@@ -1,0 +1,53 @@
+﻿=== health before challenge ===
+{
+    "ok":  true,
+    "tracing_enabled":  true,
+    "incidents":  {
+                      "rag_slow":  false,
+                      "tool_fail":  false,
+                      "cost_spike":  false
+                  }
+}
+=== enable official incident ===
+200 {'ok': True, 'incidents': {'rag_slow': True, 'tool_fail': False, 'cost_spike': False}}
+=== official challenge requests ===
+Challenge: day13-k3-observability-v1 | Cohort: K3
+[200] req-de1b848b | refund | 6635.7ms
+[200] req-1250e581 | refund | 8292.1ms
+[200] req-c3b0a2fd | refund | 8288.8ms
+[200] req-d189e1e7 | refund | 8291.4ms
+[200] req-e0b87382 | refund | 8292.0ms
+=== metrics after challenge ===
+{
+    "traffic":  5,
+    "latency_p50":  1652.0,
+    "latency_p95":  1653.0,
+    "latency_p99":  1653.0,
+    "avg_cost_usd":  0.0023,
+    "total_cost_usd":  0.0116,
+    "tokens_in_total":  100,
+    "tokens_out_total":  756,
+    "error_rate_pct":  0.0,
+    "error_breakdown":  {
+
+                        },
+    "quality_avg":  0.66
+}
+
+=== after-fix Langfuse trace evidence ===
+Selected retrieval_timed_out correlation ID: req-de1b848b
+Trace ID: 1a86098ba73f18f4014b1d6aa8f21d50
+Trace URL: https://cloud.langfuse.com/project/cmso1vrrz03p0ad0cmluaw5ai/traces/1a86098ba73f18f4014b1d6aa8f21d50
+Retrieval duration (timeout): 1500 ms, timeout_ms: 1500, degraded: True, doc_count: 0
+After-fix P95: 1653.0 ms
+After-fix quality average: 0.66
+200 {'ok': True, 'incidents': {'rag_slow': False, 'tool_fail': False, 'cost_spike': False}}
+{
+    "ok":  true,
+    "tracing_enabled":  true,
+    "incidents":  {
+                      "rag_slow":  false,
+                      "tool_fail":  false,
+                      "cost_spike":  false
+                  }
+}

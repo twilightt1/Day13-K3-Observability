@@ -1,0 +1,38 @@
+﻿Challenge ID: day13-k3-observability-v1
+Representative correlation ID: req-03476ea5
+P95 latency before fix: 3826.0 ms
+Correlated events:
+[
+    {
+        "ts":  "2026-08-11T04:31:43.170442Z",
+        "event":  "request_received",
+        "correlation_id":  "req-03476ea5",
+        "retrieval_duration_ms":  null,
+        "doc_count":  null,
+        "degraded":  null,
+        "latency_ms":  null
+    },
+    {
+        "ts":  "2026-08-11T04:31:46.218805Z",
+        "event":  "retrieval_completed",
+        "correlation_id":  "req-03476ea5",
+        "retrieval_duration_ms":  2500,
+        "doc_count":  1,
+        "degraded":  false,
+        "latency_ms":  null
+    },
+    {
+        "ts":  "2026-08-11T04:31:47.542193Z",
+        "event":  "response_sent",
+        "correlation_id":  "req-03476ea5",
+        "retrieval_duration_ms":  null,
+        "doc_count":  null,
+        "degraded":  null,
+        "latency_ms":  3826
+    }
+]
+
+Langfuse trace (representative):
+Trace ID: a66c41006e848fa7eabc27640b1230c5
+Trace URL: https://cloud.langfuse.com/project/cmso1vrrz03p0ad0cmluaw5ai/traces/a66c41006e848fa7eabc27640b1230c5
+Span retrieve-docs metadata: retrieval_duration_ms=2500, doc_count=1, degraded=false
