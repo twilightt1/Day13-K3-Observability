@@ -3,6 +3,8 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
+from structlog.contextvars import get_contextvars
+
 from . import metrics
 from .mock_llm import FakeLLM
 from .mock_rag import retrieve
@@ -48,6 +50,7 @@ class LabAgent:
             session_id=session_id,
             tags=["lab", feature, self.model],
             metadata={
+                "correlation_id": get_contextvars().get("correlation_id", "MISSING"),
                 "prompt_name": prompt.name,
                 "prompt_label": prompt.label,
                 "prompt_version": prompt.version,
