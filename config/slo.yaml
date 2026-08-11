@@ -3,14 +3,17 @@ window: 28d
 slis:
   latency_p95_ms:
     objective: 3000
-    target: 99.5
-    note: Replace with your group's target
+    target: 99.0
+    note: Error budget 1% ~ 6.7 giờ/28 ngày được phép có P95 vượt 3000ms.
   error_rate_pct:
     objective: 2
     target: 99.0
+    note: Lỗi là triệu chứng nặng nhất với người dùng nên giữ cùng mức 99% như latency.
   daily_cost_usd:
     objective: 2.5
-    target: 100.0
+    target: 96.0
+    note: Cửa sổ 28 ngày chỉ có 28 mẫu; 96% cho phép đúng 1 ngày vượt ngân sách.
   quality_score_avg:
     objective: 0.75
     target: 95.0
+    note: Quality proxy là heuristic nên nới hơn; 5% cửa sổ 15 phút được phép dưới 0.75.

@@ -1,0 +1,81 @@
+Checkpoint 2 — Kiểm tra runtime dashboard theo docs/DASHBOARD_SETUP.md
+
+Số liệu do app/dashboard_data.py tính từ data/logs.jsonl, cùng module mà scripts/dashboard.py
+dùng để vẽ, nên số trên ảnh dashboard và số dưới đây là một. Cửa sổ 60 phút, threshold lấy
+từ config/dashboard.yaml.
+
+================================================================
+PHẦN 1 — Baseline vs incident (đo trên cùng input, cùng concurrency 5)
+================================================================
+
+--- Baseline: 10 request, không bật incident ---
+latency  p50=1132.0  p95=1408.0  p99=1408.0 ms      breached=False   (threshold p95 <= 3000)
+traffic  count=10  rate_per_minute=0.1667           breached=True    (threshold >= 1/phút)
+errors   error_rate_pct=0.0  breakdown={}           breached=False   (threshold <= 2%)
+cost     total=0.0209 usd                           breached=False   (threshold <= 2.5)
+tokens   tokens_in=330  tokens_out=1327             breached=False   (threshold <= 50000)
+quality  mean=0.88                                  breached=False   (threshold >= 0.75)
+
+--- Bật incident practice ---
+$ python scripts/inject_incident.py --scenario rag_slow
+200 {'ok': True, 'incidents': {'rag_slow': True, 'tool_fail': False, 'cost_spike': False}}
+
+--- Chạy lại cùng input ---
+$ python scripts/load_test.py --concurrency 5
+
+--- Sau incident: cộng dồn 20 request trong cửa sổ ---
+latency  p50=1408.0  p95=3562.0  p99=3562.0 ms      breached=True    <-- vượt SLO 3000ms
+traffic  count=20  rate_per_minute=0.3333           breached=True
+errors   error_rate_pct=0.0  breakdown={}           breached=False
+cost     total=0.0428 usd                           breached=False
+tokens   tokens_in=660  tokens_out=2723             breached=False
+quality  mean=0.88                                  breached=False
+
+--- Tắt incident ---
+$ python scripts/inject_incident.py --scenario rag_slow --disable
+200 {'ok': True, 'incidents': {'rag_slow': False, 'tool_fail': False, 'cost_spike': False}}
+
+Kết luận: P95 tăng 1408ms -> 3562ms và vượt threshold, đúng hướng kỳ vọng của kịch bản
+rag_slow. Error rate, cost, token và quality gần như không đổi, nên triệu chứng nằm ở
+độ trễ chứ không phải lỗi hệ thống hay chi phí.
+
+================================================================
+PHẦN 2 — Trace khoanh vùng đúng span gây chậm
+================================================================
+
+Panel latency chỉ nói "chậm". Để biết chậm ở đâu, mở trace trong cửa sổ đó:
+
+trace_id : f309496b9af894b0483c32762b6ff253
+url      : https://cloud.langfuse.com/project/cmso1vrrz03p0ad0cmluaw5ai/traces/f309496b9af894b0483c32762b6ff253
+latency  : 2.656s
+
+waterfall:
+  GENERATION  run               2.656s  100.0%
+  SPAN        retrieve-docs     2.501s   94.2%   <-- thủ phạm
+  SPAN        llm-generate      0.151s    5.7%
+
+retrieve-docs chiếm 94.2% thời gian trong khi llm-generate giữ nguyên 0.151s như lúc bình
+thường. Vậy độ trễ đến từ bước truy hồi tài liệu, không phải từ mô hình. Khớp với
+app/mock_rag.py: khi STATE["rag_slow"] bật, retrieve() ngủ 2.5s.
+
+================================================================
+PHẦN 3 — Trạng thái cửa sổ 60 phút sau toàn bộ bài kiểm tra
+================================================================
+
+86 log line trong cửa sổ, 40 request (3 đợt load test + đợt baseline).
+
+latency  p50=1408.0  p95=2653.0  p99=3562.0 ms      breached=False
+traffic  count=40  rate_per_minute=0.6667           breached=True
+errors   error_rate_pct=0.0  breakdown={}           breached=False
+cost     total=0.083 usd                            breached=False
+tokens   tokens_in=1320  tokens_out=5268            breached=False
+quality  mean=0.88                                  breached=False
+
+P95 đã tụt về 2653ms sau khi tắt incident, nhưng P99 vẫn giữ 3562ms vì các request chậm
+lúc incident còn nằm trong cửa sổ 60 phút — đúng hành vi mong đợi của percentile trên
+cửa sổ trượt, không phải lỗi tính toán.
+
+--- Ghi chú về panel traffic ---
+traffic breached=True ở mọi lần đo là kết quả đúng, không phải lỗi: contract yêu cầu tối
+thiểu 1 request/phút tính trên cửa sổ 60 phút, trong khi load test chỉ bắn từng đợt 10
+request rồi dừng. Panel này chỉ hết breach khi có tải liên tục.

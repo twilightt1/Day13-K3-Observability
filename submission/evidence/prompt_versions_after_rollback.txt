@@ -1,0 +1,5 @@
+Prompt: day13-chat
+  production  -> version 1 | dòng đầu: Feature={{feature}}
+  baseline    -> version 1 | dòng đầu: Feature={{feature}}
+  candidate   -> version 2 | dòng đầu: Feature={{feature}}
+  latest      -> version 2 | dòng đầu: Feature={{feature}}

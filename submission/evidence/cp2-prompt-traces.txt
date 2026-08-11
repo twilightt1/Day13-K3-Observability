@@ -1,0 +1,69 @@
+Checkpoint 2 — Prompt versioning trên Langfuse
+Prompt: day13-chat (project cmso1vrrz03p0ad0cmluaw5ai)
+
+Output của scripts/setup_prompts.py, chạy theo thứ tự trong docstring của script.
+
+--- create ---
+Đã tạo version 1 với labels baseline + production
+Đã tạo version 2 với label candidate
+
+--- run --label baseline ---
+label=baseline | prompt_version=1
+trace_id=ce0ae6594e560ddf4b71ddd7a37b5901
+trace_url=https://cloud.langfuse.com/project/cmso1vrrz03p0ad0cmluaw5ai/traces/ce0ae6594e560ddf4b71ddd7a37b5901
+
+--- run --label candidate ---
+label=candidate | prompt_version=2
+trace_id=6d83514afe672ac641b7f37cd9266439
+trace_url=https://cloud.langfuse.com/project/cmso1vrrz03p0ad0cmluaw5ai/traces/6d83514afe672ac641b7f37cd9266439
+
+--- promote --version 2 ---
+Promote: label 'production' -> version 2
+Xác nhận: production đang trỏ tới version 2
+
+--- run --label production (sau promote) ---
+label=production | prompt_version=2
+trace_id=3e8f9ed5f24b227c0097b8027ec08fa7
+trace_url=https://cloud.langfuse.com/project/cmso1vrrz03p0ad0cmluaw5ai/traces/3e8f9ed5f24b227c0097b8027ec08fa7
+
+--- rollback --version 1 ---
+Rollback: label 'production' -> version 1
+Xác nhận: production đang trỏ tới version 1
+
+--- show (trạng thái cuối) ---
+Prompt: day13-chat
+  production  -> version 1
+  baseline    -> version 1
+  candidate   -> version 2
+  latest      -> version 2
+
+
+Kiểm chứng metadata đọc ngược từ Langfuse API (không phải từ log local):
+
+trace ce0ae6594e560ddf4b71ddd7a37b5901  name=cp2-prompt-baseline
+  trace.metadata : prompt_name=day13-chat prompt_label=baseline prompt_version=1 prompt_source=langfuse
+  generation     : promptId=e7eb2d83-c67b-439c-8301-e3d5b59f13e2
+
+trace 6d83514afe672ac641b7f37cd9266439  name=cp2-prompt-candidate
+  trace.metadata : prompt_name=day13-chat prompt_label=candidate prompt_version=2 prompt_source=langfuse
+  generation     : promptId=0bd4a37d-5926-42da-a527-2c951e574d8c
+
+trace 3e8f9ed5f24b227c0097b8027ec08fa7  name=cp2-prompt-production
+  trace.metadata : prompt_name=day13-chat prompt_label=production prompt_version=2 prompt_source=langfuse
+  generation     : promptId=0bd4a37d-5926-42da-a527-2c951e574d8c
+
+Hai promptId khác nhau chứng minh trace baseline và trace candidate trỏ tới hai bản prompt
+khác nhau, không chỉ khác nhãn metadata.
+
+
+Thống kê trace trong project (langfuse api trace.list, limit=100):
+
+source          label       version  count
+langfuse        baseline    1        1
+langfuse        candidate   2        1
+langfuse        production  1        8
+langfuse        production  2        11
+local-fallback  production  local-v1 35
+
+21 trace dùng prompt managed thật (prompt_source=langfuse), vượt mức tối thiểu 10 trace.
+35 trace local-fallback là các lần chạy trước khi prompt day13-chat được tạo trên Langfuse.

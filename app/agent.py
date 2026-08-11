@@ -31,8 +31,13 @@ class LabAgent:
     @observe(as_type="generation", capture_input=False, capture_output=False)
     def run(self, user_id: str, feature: str, session_id: str, message: str) -> AgentResult:
         started = time.perf_counter()
-        docs = retrieve(message)
         langfuse_client = get_langfuse_client()
+
+        # Hai span con để trace chỉ ra được bước nào chậm, thay vì một span "run" phẳng.
+        with langfuse_client.start_as_current_span(name="retrieve-docs") as span:
+            docs = retrieve(message)
+            span.update(metadata={"doc_count": len(docs)})
+
         prompt = resolve_prompt(
             langfuse_client,
             feature=feature,
@@ -40,7 +45,16 @@ class LabAgent:
             message=message,
             enabled=tracing_enabled(),
         )
-        response = self.llm.generate(prompt.text)
+
+        with langfuse_client.start_as_current_span(name="llm-generate") as span:
+            response = self.llm.generate(prompt.text)
+            span.update(
+                metadata={
+                    "tokens_in": response.usage.input_tokens,
+                    "tokens_out": response.usage.output_tokens,
+                    "prompt_version": prompt.version,
+                }
+            )
         quality_score = self._heuristic_quality(message, response.text, docs)
         latency_ms = int((time.perf_counter() - started) * 1000)
         cost_usd = self._estimate_cost(response.usage.input_tokens, response.usage.output_tokens)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import contextmanager
 from typing import Any
 
 try:
@@ -16,12 +17,20 @@ except ImportError:  # pragma: no cover - chỉ dùng khi chưa cài requirement
 
         return decorator
 
+    class _DummySpan:
+        def update(self, **kwargs: Any) -> None:
+            return None
+
     class _DummyClient:
         def update_current_trace(self, **kwargs: Any) -> None:
             return None
 
         def update_current_generation(self, **kwargs: Any) -> None:
             return None
+
+        @contextmanager
+        def start_as_current_span(self, **kwargs: Any):
+            yield _DummySpan()
 
     def get_client():
         return _DummyClient()
